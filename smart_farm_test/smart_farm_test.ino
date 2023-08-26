@@ -12,7 +12,8 @@
 #include <Emotion_Farm.h>           // 특수 문자 및 이모티콘 라이브러리
  
 // 센서 핀 설정
-#define relayPin 3                  // 릴레이 모듈 핀 -> 생장 LED 켜기 위함
+#define relayPin_LED 3    // 생장 LED 릴레이 모듈 핀
+#define relayPin_Mist 5   // 분무 모듈 릴레이 모듈 핀
 #define DHTPIN 4                    // 온습도센서 모듈 핀
 #define DHTTYPE DHT11               // 온습도 센서타입 설정
 #define soilmoisturePin A0          // 토양수분센서 핀
@@ -29,7 +30,8 @@ char str_H[10];
 void setup() {
   Serial.begin(9600);
 
-  pinMode(relayPin, OUTPUT);
+  pinMode(relayPin_LED, OUTPUT);
+  pinMode(relayPin_Mist, OUTPUT);
   pinMode(soilmoisturePin, INPUT);
 
   //LCD에 인트로 출력
@@ -100,20 +102,52 @@ void loop() {
     lcd.write(3);
     lcd.setCursor(14,0);
     lcd.write(4);
+    digitalWrite(relayPin, HIGH); // 생장 LED 켜기
   }
   else if(soilmoisture_per >= 30 && soilmoisture_per < 70){
     lcd.setCursor(13,0);
     lcd.print(" ");
     lcd.setCursor(14,0);
     lcd.write(5);
+    digitalWrite(relayPin, LOW); // 생장 LED 끄기
   }
   else if(soilmoisture_per >= 70){
     lcd.setCursor(13,0);
     lcd.write(3);
     lcd.setCursor(14,0);
     lcd.write(6);
+     digitalWrite(relayPin, HIGH); // 생장 LED 켜기
   }
   Serial.println(soilmoisture_per);
-  
+
+// Check temperature and humidity thresholds
+  if (t_Value > 30 || h_Value < 40) {
+    lcd.setCursor(0, 0);
+    lcd.print("Suboptimal Temp/Hum");
+
+    if (h_Value < 30) {
+      digitalWrite(relayPin_Mist, HIGH); // Turn on misting pump
+      while (h_Value < 30) {
+        h_Value = dht.readHumidity();
+        delay(1000);
+      }
+      digitalWrite(relayPin_Mist, LOW); // Turn off misting pump
+    }
+
+    if (t_Value < 40) {
+      digitalWrite(relayPin_LED, HIGH); // Turn on heater
+      while (t_Value < 40) {
+        t_Value = dht.readTemperature();
+        delay(1000);
+      }
+      digitalWrite(relayPin_LED, LOW); // Turn off heater
+    }
+  } else {
+    lcd.setCursor(0, 0);
+    lcd.print("                     "); // Clear the line
+    digitalWrite(relayPin_Mist, LOW); // Turn off misting pump
+    digitalWrite(relayPin_LED, LOW);  // Turn off heater
+  }
+
   delay(500);
 }
